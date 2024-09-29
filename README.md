@@ -13,5 +13,5 @@ Activate the virtual environment, install all the packages and launch the backen
 ```
 source pj1/bin/activate
 pip3 install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
