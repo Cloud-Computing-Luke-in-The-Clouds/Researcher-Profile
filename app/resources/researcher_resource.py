@@ -14,8 +14,8 @@ class ResearcherResource(BaseResource):
         #
         self.data_service = ServiceFactory.get_service("ResearcherResourceDataService")
         self.database = "p1_database"
-        self.collection = "research_profile"
-        self.key_field="sis_course_id"
+        self.collection = "ResearchProfile"
+        self.key_field="organization"
 
     def get_by_key(self, key: str) -> ResearchProfile:
 
@@ -25,8 +25,9 @@ class ResearcherResource(BaseResource):
             self.database, self.collection, key_field=self.key_field, key_value=key
         )
 
-        # result = ResearchProfile(**result)
-        result = Config.json_schema_extra['example']
+        result = ResearchProfile(**result)
+        
+        # result = Config.json_schema_extra['example']
 
         return result
 
