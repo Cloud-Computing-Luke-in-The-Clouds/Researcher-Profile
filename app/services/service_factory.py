@@ -1,31 +1,41 @@
+# File: /home/ubuntu/Researcher-Profile/app/services/service_factory.py
+
+import configparser
 from framework.services.service_factory import BaseServiceFactory
-import app.resources.researcher_resource as researcher_resource
 from framework.services.data_access.MySQLRDBDataService import MySQLRDBDataService
+from app.resources.researcher_resource import ResearcherResource
 
-
-# TODO -- Implement this class
 class ServiceFactory(BaseServiceFactory):
-
-    def __init__(self):
+    def __init__(self, config: configparser.ConfigParser):
         super().__init__()
+        self.config = config
+        self.data_service = None
 
-    @classmethod
-    def get_service(cls, service_name):
-        #
-        # TODO -- The terrible, hardcoding and hacking continues.
-        #
+    def get_service(self, service_name: str):
         if service_name == 'ResearcherResource':
-            result = researcher_resource.ResearcherResource(config=None)
+            if not self.data_service:
+                self.data_service = self.get_db_service()
+            return ResearcherResource(config=self.config, data_service=self.data_service)
         elif service_name == 'ResearcherResourceDataService':
-            context = dict(user="root", password="dbuserdbuser",
-                           host="localhost", port=3306)
-            data_service = MySQLRDBDataService(context=context)
-            result = data_service
+            if not self.data_service:
+                self.data_service = self.get_db_service()
+            return self.data_service
         else:
-            result = None
+            return None
 
-        return result
+    def get_db_service(self):
+        if 'mysql' not in self.config:
+            raise ValueError("MySQL configuration not found in the config file")
 
+        mysql_config = self.config['mysql']
+        context = {
+            'host': mysql_config.get('host', 'localhost'),
+            'port': mysql_config.getint('port', 3306),
+            'user': mysql_config.get('user', 'root'),
+            'password': mysql_config.get('password', 'dbuserdbuser')
+        }
 
+        if not all(context.values()):
+            raise ValueError("Missing required database configuration values")
 
-
+        return MySQLRDBDataService(context=context)

@@ -1,17 +1,17 @@
-# Standard library imports
+# main.py
+
 import os
 import logging
 from functools import lru_cache
 from typing import Annotated
 
-# Third-party imports
 import configparser
 import uvicorn
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
-# Local application imports
-from framework.services.data_access.MySQLRDBDataService import MySQLRDBDataService
+from app.services import ServiceFactory
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,23 +27,6 @@ def get_config():
     config.read(config_path)
     return config
 
-def get_db_service(config: configparser.ConfigParser = Depends(get_config)):
-    if 'mysql' not in config:
-        raise ValueError("MySQL configuration not found in the config file")
-
-    mysql_config = config['mysql']
-    context = {
-        'host': mysql_config.get('host'),
-        'port': mysql_config.getint('port', 3306),
-        'user': mysql_config.get('user'),
-        'password': mysql_config.get('password')
-    }
-
-    if not all(context.values()):
-        raise ValueError("Missing required database configuration values")
-
-    return MySQLRDBDataService(context=context)
-
 app = FastAPI()
 
 # CORS middleware
@@ -58,26 +41,26 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting up the application...")
-    db = get_db_service(get_config())
+    config = get_config()
+    service_factory = ServiceFactory(config)
+    app.state.service_factory = service_factory
+    
     try:
-        db._get_connection()
+        db_service = service_factory.get_service('ResearcherResourceDataService')
+        db_service._get_connection()
         logger.info("Database connection successful")
     except Exception as e:
         logger.error(f"Database connection failed: {e}")
         raise
 
-@app.get("/")
-async def root():
-    return {"message": "Hello Bigger Applications!"}
+def get_service_factory():
+    return app.state.service_factory
 
-# @app.get("/health")
-# async def health_check(db: Annotated[MySQLRDBDataService, Depends(get_db_service)]):
-#     try:
-#         db._get_connection()
-#         return {"status": "healthy", "database": "connected"}
-#     except Exception as e:
-#         logger.error(f"Health check failed: {e}")
-#         return {"status": "unhealthy", "database": "disconnected"}
+@app.get("/")
+async def root(service_factory: Annotated[ServiceFactory, Depends(get_service_factory)]):
+    researcher_resource = service_factory.get_service('ResearcherResource')
+    # Use researcher_resource as needed
+    return {"message": "Hello World"}
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
