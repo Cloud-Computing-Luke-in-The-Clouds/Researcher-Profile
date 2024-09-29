@@ -3,7 +3,7 @@
 import os
 import logging
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, List, Optional
 
 import configparser
 import uvicorn
@@ -11,6 +11,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.services import ServiceFactory
+from app.models.researcher import ResearchProfile
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -56,11 +57,13 @@ async def startup_event():
 def get_service_factory():
     return app.state.service_factory
 
-@app.get("/")
-async def root(service_factory: Annotated[ServiceFactory, Depends(get_service_factory)]):
+@app.get("/researchers", response_model=List[ResearchProfile])
+async def get_all_researchers(service_factory: Annotated[ServiceFactory, Depends(get_service_factory)]):
     researcher_resource = service_factory.get_service('ResearcherResource')
-    # Use researcher_resource as needed
-    return {"message": "Hello World"}
+    researchers = researcher_resource.get_all()
+    if not researchers:
+        raise HTTPException(status_code=404, detail="No researchers found")
+    return researchers
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
